@@ -1,0 +1,55 @@
+- hosts: all
+  become: yes
+  vars:
+    app_port: 8000
+    db_pass: "{{ lookup('password', '/dev/null length=12') }}"
+
+  tasks:
+    - name: install docker
+      shell: |
+        dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+        dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        systemctl enable --now docker
+        usermod -aG docker root
+
+    - name: clean app directory
+      file:
+        path: /opt/app
+        state: absent
+
+
+    - name: copy app source to server
+      copy:
+        src: ../app/
+        dest: /opt/app/
+        mode: 0755
+
+    - name: build app image
+      docker_image:
+        name: fastapi
+        source: build
+        build:
+          path: /opt/app
+          nocache: true
+        force_source: true
+
+    - name: template compose
+      template:
+        src: roles/app/templates/docker-compose.yml.j2
+        dest: /opt/docker-compose.yml
+
+    - name: Stop old containers (ignore errors if none exist)
+      shell: docker compose down -v
+      args:
+        chdir: /opt
+      ignore_errors: yes
+
+    - name: Build and run stack
+      shell: docker compose up -d --build
+      args:
+        chdir: /opt
+
+   # - name: open firewall
+    #  shell: |
+     #   firewall-cmd --permanent --add-port={{ app_port }}/tcp
+      #  firewall-cmd --reload

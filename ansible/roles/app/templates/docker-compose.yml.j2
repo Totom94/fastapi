@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: pass123
+      POSTGRES_USER: user
+      POSTGRES_DB: items
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  app:
+    image: fastapi
+    environment:
+      DB_URL: "postgresql+psycopg2://user:pass123@db:5432/items"
+    ports:
+      - "{{ app_port }}:8000"
+    depends_on:
+      - db
+volumes:
+  pgdata:
